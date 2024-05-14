@@ -834,7 +834,7 @@
                                                                     <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="NSActionTemplate" id="lfR-vM-hJD"/>
                                                                 </imageView>
                                                                 <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" fixedFrame="YES" allowsExpansionToolTips="YES" translatesAutoresizingMaskIntoConstraints="NO" id="UAo-6Q-TLg">
-                                                                    <rect key="frame" x="25" y="0.0" width="91" height="17"/>
+                                                                    <rect key="frame" x="25" y="0.0" width="91" height="16"/>
                                                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES"/>
                                                                     <textFieldCell key="cell" lineBreakMode="truncatingTail" sendsActionOnEndEditing="YES" title="Table View Cell" id="28i-Dt-ddL">
                                                                         <font key="font" metaFont="system"/>

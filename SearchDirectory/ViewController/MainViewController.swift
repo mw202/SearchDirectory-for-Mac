@@ -36,9 +36,8 @@ class MainViewController: NSViewController {
         
         setupUI()
         
-//        let acc = url?.startAccessingSecurityScopedResource()
-        
-        enumerateDirectory(URL(fileURLWithPath: textFieldPath.stringValue, isDirectory: true), &self.items)
+        searchDirectory(URL(fileURLWithPath: textFieldPath.stringValue), parent: nil)
+        //enumerateDirectory(URL(fileURLWithPath: textFieldPath.stringValue, isDirectory: true), &self.items)
         
         outlineViewDirectory.reloadData()
         tableViewFile.reloadData()
@@ -48,11 +47,10 @@ class MainViewController: NSViewController {
     
     func setupUI() {
         tableViewFile.menu = menuFile
-        tableViewFile.sizeToFit()
         
         textFieldPath.stringValue = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?.appendingPathComponent("Developer/CoreSimulator/Devices").path ?? ""
         #if DEBUG
-        textFieldPath.stringValue = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?.appendingPathComponent("Developer/Xcode/Archives").path ?? ""
+        //textFieldPath.stringValue = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?.appendingPathComponent("Developer/Xcode/Archives").path ?? ""
         #endif
         
 //        // 双击
@@ -61,16 +59,39 @@ class MainViewController: NSViewController {
         
         // 排序
         let sortName = NSSortDescriptor(key: "name", ascending: true)
-        let sortDate = NSSortDescriptor(key: "createDate", ascending: true)
+        let sortDate = NSSortDescriptor(key: "createDate", ascending: false)
         let sortSize = NSSortDescriptor(key: "size", ascending: true)
         tableViewFile.tableColumns.safeObject(index: 0)?.sortDescriptorPrototype = sortName
         tableViewFile.tableColumns.safeObject(index: 1)?.sortDescriptorPrototype = sortDate
         tableViewFile.tableColumns.safeObject(index: 2)?.sortDescriptorPrototype = sortSize
     }
     
+    func searchDirectory(_ url: URL, parent: DirectoryTreeModel?) {
+        parent?.children?.removeAll()
+        files?.removeAll()
+        
+        let fileManager = FileManager.default
+        let keys: [URLResourceKey] = [.creationDateKey, .isHiddenKey, .isDirectoryKey, .parentDirectoryURLKey, .fileSizeKey, .nameKey, .isPackageKey, .effectiveIconKey, .pathKey]
+        
+        do {
+            let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
+            for content in contents {
+                let resource = try? content.resourceValues(forKeys: Set(keys))
+                let item = DirectoryTreeModel(resource)
+                if parent == nil {
+                    items?.append(item)
+                } else {
+                    files?.append(item)
+                    parent?.children?.append(item)
+                }
+            }
+        } catch {
+            //
+        }
+    }
+    
     func enumerateDirectory(_ url: URL, _ items: inout [DirectoryTreeModel]?) {
         let fileManager = FileManager.default
-        
         let keys: [URLResourceKey] = [.creationDateKey, .isHiddenKey, .isDirectoryKey, .parentDirectoryURLKey, .fileSizeKey, .nameKey, .localizedNameKey, .isPackageKey, .customIconKey, .effectiveIconKey, .pathKey, .customIconKey]
         
         /*
@@ -122,33 +143,35 @@ class MainViewController: NSViewController {
         // sortedArray(using sortDescriptors: [NSSortDescriptor]) 闪退
         return items?.sorted { (c1, c2) -> Bool in
             var b = true
-            if let sd = self.sortDescriptor {
-                var b1 = true
-                if sd.key == "name" {
-                    if sd.ascending {
-                        b1 = (c1.name > c2.name)
-                    } else {
-                        b1 = (c1.name < c2.name)
-                    }
-                    b = b && b1
+            // 默认名字排序
+            let sd = self.sortDescriptor ?? NSSortDescriptor(key: "name", ascending: false)
+            
+            var b1 = true
+            if sd.key == "name" {
+                if sd.ascending {
+                    b1 = (c1.name > c2.name)
+                } else {
+                    b1 = (c1.name < c2.name)
                 }
-                if sd.key == "createDate" {
-                    if sd.ascending {
-                        b1 = (c1.createDate ?? Date() > c2.createDate ?? Date())
-                    } else {
-                        b1 = (c1.createDate ?? Date() < c2.createDate ?? Date())
-                    }
-                    b = b && b1
-                }
-                if sd.key == "size" {
-                    if sd.ascending {
-                        b1 = (c1.size ?? 0 > c2.size ?? 0)
-                    } else {
-                        b1 = (c1.size ?? 0 < c2.size ?? 0)
-                    }
-                    b = b && b1
-                }
+                b = b && b1
             }
+            if sd.key == "createDate" {
+                if sd.ascending {
+                    b1 = (c1.createDate ?? Date() > c2.createDate ?? Date())
+                } else {
+                    b1 = (c1.createDate ?? Date() < c2.createDate ?? Date())
+                }
+                b = b && b1
+            }
+            if sd.key == "size" {
+                if sd.ascending {
+                    b1 = (c1.size ?? 0 > c2.size ?? 0)
+                } else {
+                    b1 = (c1.size ?? 0 < c2.size ?? 0)
+                }
+                b = b && b1
+            }
+            
             return b
         }
     }
@@ -168,6 +191,17 @@ class MainViewController: NSViewController {
         }
     }
     
+    func searchChildren(_ item: DirectoryTreeModel?, reloadFile: Bool) {
+        if let path = item?.fullPath {
+            searchDirectory(URL(fileURLWithPath: path), parent: item)
+            files = sortedFile(item?.children)
+            // 只在选中时刷新文件表格，仅仅只是展开三角不需要刷新
+            if reloadFile {
+                tableViewFile.reloadData()
+            }
+        }
+    }
+    
     // MARK: - Click
     
     @IBAction func folderDoubleClick(_ sender: NSOutlineView) {
@@ -182,7 +216,8 @@ class MainViewController: NSViewController {
         items?.removeAll()
         files?.removeAll()
         
-        enumerateDirectory(URL(fileURLWithPath: textFieldPath.stringValue), &items)
+        searchDirectory(URL(fileURLWithPath: textFieldPath.stringValue), parent: nil)
+        //enumerateDirectory(URL(fileURLWithPath: textFieldPath.stringValue), &items)
         
         outlineViewDirectory.reloadData()
         tableViewFile.reloadData()
@@ -232,6 +267,24 @@ extension MainViewController: NSOutlineViewDataSource, NSOutlineViewDelegate {
         return (item as? DirectoryTreeModel)?.isDirectory ?? false
     }
     
+    func outlineViewItemWillExpand(_ notification: Notification) {
+        /*
+        let view = notification.object as? NSOutlineView
+        if let row = view?.selectedRow { // clickedRow
+            let item = view?.item(atRow: row) as? DirectoryTreeModel
+            if let path = item?.fullPath {
+                searchDirectory(URL(fileURLWithPath: path), parent: item)
+                files = sortedFile(item?.children)
+                tableViewFile.reloadData()
+            }
+        }
+        */
+        
+        let info = notification.userInfo
+
+        searchChildren(info?["NSObject"] as? DirectoryTreeModel, reloadFile: false)
+    }
+    
     func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
         return 32
     }
@@ -248,8 +301,7 @@ extension MainViewController: NSOutlineViewDataSource, NSOutlineViewDelegate {
         
         if let row = view?.selectedRow {
             let item = view?.item(atRow: row) as? DirectoryTreeModel
-            files = sortedFile(item?.children)
-            tableViewFile.reloadData()
+            searchChildren(item, reloadFile: true)
         }
     }
 }
