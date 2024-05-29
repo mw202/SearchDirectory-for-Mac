@@ -26,6 +26,7 @@ class MainViewController: NSViewController {
         }
     }
     private var sortDescriptor: NSSortDescriptor?
+    private var devicesDirectory = ""
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -33,6 +34,7 @@ class MainViewController: NSViewController {
         
         items = []
         files = []
+        devicesDirectory = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?.appendingPathComponent("Developer/CoreSimulator/Devices").path ?? ""
         
         setupUI()
         
@@ -48,14 +50,7 @@ class MainViewController: NSViewController {
     func setupUI() {
         tableViewFile.menu = menuFile
         
-        textFieldPath.stringValue = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?.appendingPathComponent("Developer/CoreSimulator/Devices").path ?? ""
-        #if DEBUG
-        //textFieldPath.stringValue = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first?.appendingPathComponent("Developer/Xcode/Archives").path ?? ""
-        #endif
-        
-//        // 双击
-//        tableViewFile.target = self
-//        tableViewFile.doubleAction = #selector(tableViewDoubleClick(_:))
+        textFieldPath.stringValue = devicesDirectory
         
         // 排序
         let sortName = NSSortDescriptor(key: "name", ascending: true)
@@ -74,7 +69,7 @@ class MainViewController: NSViewController {
         let keys: [URLResourceKey] = [.creationDateKey, .isHiddenKey, .isDirectoryKey, .parentDirectoryURLKey, .fileSizeKey, .nameKey, .isPackageKey, .effectiveIconKey, .pathKey]
         
         do {
-            let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
+            let contents = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: keys)
             for content in contents {
                 let resource = try? content.resourceValues(forKeys: Set(keys))
                 let item = DirectoryTreeModel(resource)
